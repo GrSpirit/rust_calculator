@@ -11,6 +11,7 @@ enum Operator {
     Mul,
     Sum,
     Sub,
+    Div
 }
 
 #[derive(Debug, Clone)]
@@ -30,7 +31,7 @@ impl Token {
         match self {
             Token::Operand(_) => 10,
             Token::Operator(op) => match op {
-                Operator::Mul => 2,
+                Operator::Mul | Operator::Div => 2,
                 Operator::Sum | Operator::Sub => 1
             }
         }
@@ -49,8 +50,6 @@ impl Node {
         Node { value: t, left: None, right: None }
     }
     fn calc(&self) -> i32 {
-        //let left = self.left;
-        //let right = self.right;
         let val = &self.value.clone();
         match val {
             Token::Operand(ref op) => match op {
@@ -59,14 +58,25 @@ impl Node {
             },
             Token::Operator(ref op) => match op {
                 Operator::Mul => {
-                    //self.left.unwrap().calc() * self.right.unwrap().calc(),
-                    let left = self.left.unwrap();
-                    let right = self.right.unwrap();
+                    let left = self.left.as_ref().unwrap();
+                    let right = self.right.as_ref().unwrap();
                     left.calc() * right.calc()
                 },
-                _ => panic!("Not implemented")
-                //Operator::Sum => self.left.unwrap().calc() + self.right.unwrap().calc(),
-                //Operator::Sub => self.left.unwrap().calc() - self.right.unwrap().calc()
+                Operator::Div => {
+                    let left = self.left.as_ref().unwrap();
+                    let right = self.right.as_ref().unwrap();
+                    left.calc() / right.calc()
+                },
+                Operator::Sum => {
+                    let left = self.left.as_ref().unwrap();
+                    let right = self.right.as_ref().unwrap();
+                    left.calc() + right.calc()
+                },
+                Operator::Sub => {
+                    let left = self.left.as_ref().unwrap();
+                    let right = self.right.as_ref().unwrap();
+                    left.calc() - right.calc()
+                },
             }
         }
 
@@ -78,18 +88,16 @@ struct TokenIterator<'a> {
     offset: usize
 }
 
-impl<'a> Iterator for TokenIterator<'a> {
-    type Item = Token;
-    fn next(&mut self) -> Option<Token> {
-        self.next_token(&self.expr[self.offset..])
-    }
-}
-
 impl<'a> TokenIterator<'a> {
     fn new(expr: &'a str) -> Self {
         TokenIterator {expr: expr, offset: 0}
     }
-    fn next_token(&mut self, expr: &'a str) -> Option<Token> {
+}
+
+impl<'a> Iterator for TokenIterator<'a> {
+    type Item = Token;
+    fn next(&mut self) -> Option<Token> {
+        let expr = &self.expr[self.offset..];
         /*lazy_static! {
           static ref REG_NUM: Regex = Regex::new(r"^\d+").unwrap();
           static ref REG_VAR: Regex = Regex::new(r"^\w+\d*").unwrap();
@@ -108,6 +116,10 @@ impl<'a> TokenIterator<'a> {
         else if expr.starts_with("*") {
             self.offset += 1;
             Some(Token::Operator(Operator::Mul))
+        }
+        else if expr.starts_with("/") {
+            self.offset += 1;
+            Some(Token::Operator(Operator::Div))
         }
         /*else if let Some(cap) = REG_NUM.captures(expr) {
           let number = cap.get(0).unwrap().as_str();
@@ -162,6 +174,6 @@ fn main() {
     let variables = tokens.iter().filter(|x| match x { Token::Operand(op) => match op { Operand::Variable(_) => true, _=> false}, _=> false});
     eprintln!("{:?}", tokens);
     let root = build_tree(tokens.as_slice());
-
     eprintln!("{:?}", root);
+    println!("{}", root.unwrap().calc());
 }
