@@ -48,7 +48,27 @@ impl Node {
     fn new(t: Token) -> Self {
         Node { value: t, left: None, right: None }
     }
-    fn calc() -> i32 {
+    fn calc(&self) -> i32 {
+        //let left = self.left;
+        //let right = self.right;
+        let val = &self.value.clone();
+        match val {
+            Token::Operand(ref op) => match op {
+                Operand::Value(x) => *x,
+                Operand::Variable(_) => panic!("Not implemented")
+            },
+            Token::Operator(ref op) => match op {
+                Operator::Mul => {
+                    //self.left.unwrap().calc() * self.right.unwrap().calc(),
+                    let left = self.left.unwrap();
+                    let right = self.right.unwrap();
+                    left.calc() * right.calc()
+                },
+                _ => panic!("Not implemented")
+                //Operator::Sum => self.left.unwrap().calc() + self.right.unwrap().calc(),
+                //Operator::Sub => self.left.unwrap().calc() - self.right.unwrap().calc()
+            }
+        }
 
     }
 }
@@ -139,6 +159,7 @@ fn build_tree(expr: &[Token]) -> Option<Box<Node>> {
 fn main() {
     let expr = read_line().replace(" ", "");
     let tokens: Vec<Token> = TokenIterator::new(expr.as_str()).collect();
+    let variables = tokens.iter().filter(|x| match x { Token::Operand(op) => match op { Operand::Variable(_) => true, _=> false}, _=> false});
     eprintln!("{:?}", tokens);
     let root = build_tree(tokens.as_slice());
 
