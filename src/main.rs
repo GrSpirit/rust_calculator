@@ -98,10 +98,6 @@ impl<'a> Iterator for TokenIterator<'a> {
     type Item = Token;
     fn next(&mut self) -> Option<Token> {
         let expr = &self.expr[self.offset..];
-        /*lazy_static! {
-          static ref REG_NUM: Regex = Regex::new(r"^\d+").unwrap();
-          static ref REG_VAR: Regex = Regex::new(r"^\w+\d*").unwrap();
-          }*/
         if expr.is_empty() {
             None
         }
@@ -121,16 +117,6 @@ impl<'a> Iterator for TokenIterator<'a> {
             self.offset += 1;
             Some(Token::Operator(Operator::Div))
         }
-        /*else if let Some(cap) = REG_NUM.captures(expr) {
-          let number = cap.get(0).unwrap().as_str();
-         *offset += number.len();
-         Some(Token::Operand(Operand::Value(number.parse::<i32>().unwrap())))
-         }
-         else if let Some(cap) = REG_VAR.captures(expr) {
-         let variable = cap.get(0).unwrap().as_str();
-         *offset += variable.len();
-         Some(Token::Operand(Operand::Variable(String::from(variable))))
-         }*/
         else {
             let mut chars = expr.chars();
             let c = chars.next().unwrap();
