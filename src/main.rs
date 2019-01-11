@@ -6,6 +6,7 @@ fn read_line() -> String {
     input.trim_right().to_string()
 }
 
+// Arithmetic operators
 #[derive(Debug, Clone)]
 enum Operator {
     Mul,
@@ -15,11 +16,24 @@ enum Operator {
 }
 
 #[derive(Debug, Clone)]
-enum Operand {
-    Value(i32),
-    Variable(String)
+struct Var {
+    name: String,
+    val: i32
 }
 
+impl Var {
+    fn new(name: &str) -> Self {
+        Var { name: String::from(name), val: 0 }
+    }
+}
+// Expression operands
+#[derive(Debug, Clone)]
+enum Operand {
+    Value(i32),
+    Variable(Var)
+}
+
+// Token
 #[derive(Debug, Clone)]
 enum Token {
     Operator(Operator),
@@ -38,6 +52,7 @@ impl Token {
     }
 }
 
+// Expression Tree
 #[derive(Debug)]
 struct Node {
     value: Token,
@@ -49,40 +64,59 @@ impl Node {
     fn new(t: Token) -> Self {
         Node { value: t, left: None, right: None }
     }
-    fn calc(&self) -> i32 {
-        let val = &self.value.clone();
-        match val {
+    fn calc(&self, vars: &[i32], vi: &mut usize) -> i32 {
+        match self.value {
             Token::Operand(ref op) => match op {
                 Operand::Value(x) => *x,
-                Operand::Variable(_) => panic!("Not implemented")
+                Operand::Variable(_) => {
+                    *vi += 1;
+                    vars[*vi - 1]
+                }
             },
             Token::Operator(ref op) => match op {
                 Operator::Mul => {
                     let left = self.left.as_ref().unwrap();
                     let right = self.right.as_ref().unwrap();
-                    left.calc() * right.calc()
+                    left.calc(vars, vi) * right.calc(vars, vi)
                 },
                 Operator::Div => {
                     let left = self.left.as_ref().unwrap();
                     let right = self.right.as_ref().unwrap();
-                    left.calc() / right.calc()
+                    left.calc(vars, vi) / right.calc(vars, vi)
                 },
                 Operator::Sum => {
                     let left = self.left.as_ref().unwrap();
                     let right = self.right.as_ref().unwrap();
-                    left.calc() + right.calc()
+                    left.calc(vars, vi) + right.calc(vars, vi)
                 },
                 Operator::Sub => {
                     let left = self.left.as_ref().unwrap();
                     let right = self.right.as_ref().unwrap();
-                    left.calc() - right.calc()
+                    left.calc(vars, vi) - right.calc(vars, vi)
                 },
             }
         }
 
     }
+    /*fn assign_variables(&mut self, vars: &[i32], i: &mut usize) {
+        match self.value {
+            Token::Operand(ref mut op) => {
+                if let Operand::Variable(ref mut v) = op {
+                    v.val = vars[*i];
+                    *i += 1;
+                }
+            },
+            Token::Operator(_) => {
+                let mut left = self.left.as_ref().unwrap();
+                left.assign_variables(vars, &mut i);
+                let mut right = self.right.as_ref().unwrap();
+                right.assign_variables(vars, &mut i);
+            }
+        }
+    }*/
 }
 
+// Token iterator to parse expression string
 struct TokenIterator<'a> {
     expr: &'a str,
     offset: usize
@@ -138,13 +172,14 @@ impl<'a> Iterator for TokenIterator<'a> {
                 }
                 let variable = &expr[0..len];
                 self.offset += variable.len();
-                Some(Token::Operand(Operand::Variable(variable.to_string())))
+                Some(Token::Operand(Operand::Variable(Var::new(variable))))
             }
             else { None }
         }
     }
 }
 
+// Build expression string
 fn build_tree(expr: &[Token]) -> Option<Box<Node>> {
     if let Some((i, t)) = expr.iter()
         .enumerate()
@@ -154,12 +189,14 @@ fn build_tree(expr: &[Token]) -> Option<Box<Node>> {
     else { None }
 }
 
+// Start point
 fn main() {
     let expr = read_line().replace(" ", "");
     let tokens: Vec<Token> = TokenIterator::new(expr.as_str()).collect();
     let variables = tokens.iter().filter(|x| match x { Token::Operand(op) => match op { Operand::Variable(_) => true, _=> false}, _=> false});
     eprintln!("{:?}", tokens);
-    let root = build_tree(tokens.as_slice());
+    let mut root = build_tree(tokens.as_slice());
     eprintln!("{:?}", root);
-    println!("{}", root.unwrap().calc());
+    let mut vi = 0;
+    println!("{}", root.unwrap().calc(&[0,1], &mut vi));
 }
