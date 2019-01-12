@@ -15,22 +15,11 @@ enum Operator {
     Div
 }
 
-#[derive(Debug, Clone)]
-struct Var {
-    name: String,
-    val: i32
-}
-
-impl Var {
-    fn new(name: &str) -> Self {
-        Var { name: String::from(name), val: 0 }
-    }
-}
 // Expression operands
 #[derive(Debug, Clone)]
 enum Operand {
     Value(i32),
-    Variable(Var)
+    Variable(String)
 }
 
 // Token
@@ -64,35 +53,37 @@ impl Node {
     fn new(t: Token) -> Self {
         Node { value: t, left: None, right: None }
     }
-    fn calc(&self, vars: &[i32], vi: &mut usize) -> i32 {
+    fn calc(&self) -> i32 {
         match self.value {
             Token::Operand(ref op) => match op {
                 Operand::Value(x) => *x,
                 Operand::Variable(_) => {
-                    *vi += 1;
-                    vars[*vi - 1]
+                    unsafe {
+                        VARS_I += 1; 
+                        VARS[VARS_I - 1]
+                    }
                 }
             },
             Token::Operator(ref op) => match op {
                 Operator::Mul => {
                     let left = self.left.as_ref().unwrap();
                     let right = self.right.as_ref().unwrap();
-                    left.calc(vars, vi) * right.calc(vars, vi)
+                    left.calc() * right.calc()
                 },
                 Operator::Div => {
                     let left = self.left.as_ref().unwrap();
                     let right = self.right.as_ref().unwrap();
-                    left.calc(vars, vi) / right.calc(vars, vi)
+                    left.calc() / right.calc()
                 },
                 Operator::Sum => {
                     let left = self.left.as_ref().unwrap();
                     let right = self.right.as_ref().unwrap();
-                    left.calc(vars, vi) + right.calc(vars, vi)
+                    left.calc() + right.calc()
                 },
                 Operator::Sub => {
                     let left = self.left.as_ref().unwrap();
                     let right = self.right.as_ref().unwrap();
-                    left.calc(vars, vi) - right.calc(vars, vi)
+                    left.calc() - right.calc()
                 },
             }
         }
@@ -172,7 +163,7 @@ impl<'a> Iterator for TokenIterator<'a> {
                 }
                 let variable = &expr[0..len];
                 self.offset += variable.len();
-                Some(Token::Operand(Operand::Variable(Var::new(variable))))
+                Some(Token::Operand(Operand::Variable(String::from(variable))))
             }
             else { None }
         }
@@ -189,14 +180,49 @@ fn build_tree(expr: &[Token]) -> Option<Box<Node>> {
     else { None }
 }
 
+static mut VARS: [i32;10] = [0; 10];
+static mut VARS_I: usize = 0;
+
+#[derive(Debug)]
+struct Variable {
+    name: String,
+    val: i32,
+    start: i32,
+    end: i32
+}
+
+impl Variable {
+    fn new(name: String) -> Self {
+        let end = name[1..].parse::<i32>().unwrap();
+        Variable { name: name, val: 0, start: 1, end: end }
+    }
+    fn inc(&mut self) -> i32 {
+        self.val = if self.val == self.end { self.start } else { self.val + 1 };
+        self.val
+    }
+}
 // Start point
 fn main() {
     let expr = read_line().replace(" ", "");
     let tokens: Vec<Token> = TokenIterator::new(expr.as_str()).collect();
-    let variables = tokens.iter().filter(|x| match x { Token::Operand(op) => match op { Operand::Variable(_) => true, _=> false}, _=> false});
+    let mut variables = tokens.iter()
+        .filter_map(|x| match x { Token::Operand(op) => match op { Operand::Variable(v) => Some(Variable::new(v.clone())), _=> None}, _=> None})
+        .collect::<Vec<_>>();
     eprintln!("{:?}", tokens);
-    let mut root = build_tree(tokens.as_slice());
+    let root = build_tree(tokens.as_slice()).unwrap();
     eprintln!("{:?}", root);
-    let mut vi = 0;
-    println!("{}", root.unwrap().calc(&[0,1], &mut vi));
+    let mut last = false;
+    while !last {
+        last = true;
+        unsafe {
+            VARS_I = 0;
+            for v in variables.iter_mut() {
+                VARS[VARS_I] = (*v).inc();
+                VARS_I += 1;
+                last = last && ((*v).val == (*v).end);
+            }
+            VARS_I = 0;
+        }
+        println!("{}", root.calc());
+    }
 }
