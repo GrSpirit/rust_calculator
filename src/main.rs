@@ -128,25 +128,16 @@ fn infix_to_postfix(tokens: &Vec<Rc<Token>>) -> Vec<Rc<Token>> {
         match **token {
             Token::Operand(_) => result.push(token.clone()),
             Token::Operator(ref op) => {
-                if let Some(top) = stack.last().map(|x| x.clone()) {
-                    match *top {
-                        Token::Operator(ref p) => {
-                            if op.precedence() > p.precedence() {
-                                stack.push(token.clone());
-                            }
-                            else {
-                                while let Some(x) = stack.pop() {
-                                    match **x {
-                                    }
-                                }
-                            }
-                        },
-                        Token::Operand(_) => panic!("Operand is not expected in this stack")
+                while let Some(top) = stack.pop() {
+                    let push_back: bool = match *top {
+                        Token::Operator(ref p) => op.precedence() < p.precedence(),
+                        _ => false
+                    };
+                    if push_back {
+                        stack.push(top);
                     }
                 }
-                else {
-                    stack.push(token.clone());
-                }
+                stack.push(token.clone());
 
                 /*match stack.last().map(|v| v.clone()) {
                     Some(top) => 
