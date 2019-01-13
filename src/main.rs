@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use std::io;
 
 fn read_line() -> String {
@@ -29,82 +30,13 @@ enum Token {
     Operand(Operand)
 }
 
-impl Token {
-    fn priority(&self) -> u32 {
+impl Operator {
+    fn precedence(&self) -> u32 {
         match self {
-            Token::Operand(_) => 10,
-            Token::Operator(op) => match op {
-                Operator::Mul | Operator::Div => 2,
-                Operator::Sum | Operator::Sub => 1
-            }
+            Operator::Mul | Operator::Div => 2,
+            Operator::Sum | Operator::Sub => 1
         }
     }
-}
-
-// Expression Tree
-#[derive(Debug)]
-struct Node {
-    value: Token,
-    left: Option<Box<Node>>,
-    right: Option<Box<Node>>,
-}
-
-impl Node {
-    fn new(t: Token) -> Self {
-        Node { value: t, left: None, right: None }
-    }
-    fn calc(&self) -> i32 {
-        match self.value {
-            Token::Operand(ref op) => match op {
-                Operand::Value(x) => *x,
-                Operand::Variable(_) => {
-                    unsafe {
-                        VARS_I += 1; 
-                        VARS[VARS_I - 1]
-                    }
-                }
-            },
-            Token::Operator(ref op) => match op {
-                Operator::Mul => {
-                    let left = self.left.as_ref().unwrap();
-                    let right = self.right.as_ref().unwrap();
-                    left.calc() * right.calc()
-                },
-                Operator::Div => {
-                    let left = self.left.as_ref().unwrap();
-                    let right = self.right.as_ref().unwrap();
-                    left.calc() / right.calc()
-                },
-                Operator::Sum => {
-                    let left = self.left.as_ref().unwrap();
-                    let right = self.right.as_ref().unwrap();
-                    left.calc() + right.calc()
-                },
-                Operator::Sub => {
-                    let left = self.left.as_ref().unwrap();
-                    let right = self.right.as_ref().unwrap();
-                    left.calc() - right.calc()
-                },
-            }
-        }
-
-    }
-    /*fn assign_variables(&mut self, vars: &[i32], i: &mut usize) {
-        match self.value {
-            Token::Operand(ref mut op) => {
-                if let Operand::Variable(ref mut v) = op {
-                    v.val = vars[*i];
-                    *i += 1;
-                }
-            },
-            Token::Operator(_) => {
-                let mut left = self.left.as_ref().unwrap();
-                left.assign_variables(vars, &mut i);
-                let mut right = self.right.as_ref().unwrap();
-                right.assign_variables(vars, &mut i);
-            }
-        }
-    }*/
 }
 
 // Token iterator to parse expression string
@@ -170,19 +102,6 @@ impl<'a> Iterator for TokenIterator<'a> {
     }
 }
 
-// Build expression string
-fn build_tree(expr: &[Token]) -> Option<Box<Node>> {
-    if let Some((i, t)) = expr.iter()
-        .enumerate()
-        .min_by_key(|(_, t)| t.priority()) {
-            Some(Box::new(Node {value: t.clone(), left: build_tree(&expr[..i]), right: build_tree(&expr[i+1..])}))
-        }
-    else { None }
-}
-
-static mut VARS: [i32;10] = [0; 10];
-static mut VARS_I: usize = 0;
-
 #[derive(Debug)]
 struct Variable {
     name: String,
@@ -201,15 +120,54 @@ impl Variable {
         self.val
     }
 }
+
+fn infix_to_postfix(tokens: &Vec<Rc<Token>>) -> Vec<Rc<Token>> {
+    let mut result: Vec<Rc<Token>> = Vec::with_capacity(tokens.len());
+    let mut stack: Vec<Rc<Token>> = Vec::new();
+    for token in tokens.iter() {
+        match **token {
+            Token::Operand(_) => result.push(token.clone()),
+            Token::Operator(ref op) => {
+                if let Some(top) = stack.last().map(|x| x.clone()) {
+                    match *top {
+                        Token::Operator(ref p) => {
+                            if op.precedence() > p.precedence() {
+                                stack.push(token.clone());
+                            }
+                            else {
+                                while let Some(x) = stack.pop() {
+                                    match **x {
+                                    }
+                                }
+                            }
+                        },
+                        Token::Operand(_) => panic!("Operand is not expected in this stack")
+                    }
+                }
+                else {
+                    stack.push(token.clone());
+                }
+
+                /*match stack.last().map(|v| v.clone()) {
+                    Some(top) => 
+                    None => stack.push(token.clone())
+
+                }*/
+            }
+        }
+    }
+    result
+}
+
 // Start point
 fn main() {
     let expr = read_line().replace(" ", "");
-    let tokens: Vec<Token> = TokenIterator::new(expr.as_str()).collect();
+    let tokens: Vec<Rc<Token>> = TokenIterator::new(expr.as_str()).map(|x| Rc::new(x)).collect();
     let mut variables = tokens.iter()
-        .filter_map(|x| match x { Token::Operand(op) => match op { Operand::Variable(v) => Some(Variable::new(v.clone())), _=> None}, _=> None})
+        .filter_map(|x| match **x { Token::Operand(ref op) => match op { Operand::Variable(v) => Some(Variable::new(v.clone())), _=> None}, _=> None})
         .collect::<Vec<_>>();
     eprintln!("{:?}", tokens);
-    let root = build_tree(tokens.as_slice()).unwrap();
+    /*let root = build_tree(tokens.as_slice()).unwrap();
     eprintln!("{:?}", root);
     let mut last = false;
     while !last {
@@ -224,5 +182,5 @@ fn main() {
             VARS_I = 0;
         }
         println!("{}", root.calc());
-    }
+    }*/
 }
