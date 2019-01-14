@@ -120,25 +120,6 @@ impl<'a> Iterator for TokenIterator<'a> {
     }
 }
 
-#[derive(Debug)]
-struct Variable {
-    name: String,
-    val: i32,
-    start: i32,
-    end: i32
-}
-
-impl Variable {
-    fn new(name: String) -> Self {
-        let end = name[1..].parse::<i32>().unwrap();
-        Variable { name: name, val: 0, start: 1, end: end }
-    }
-    fn inc(&mut self) -> i32 {
-        self.val = if self.val == self.end { self.start } else { self.val + 1 };
-        self.val
-    }
-}
-
 fn infix_to_postfix(tokens: &Vec<Rc<Token>>) -> Vec<Rc<Token>> {
     let mut result: Vec<Rc<Token>> = Vec::with_capacity(tokens.len());
     let mut stack: Vec<Rc<Token>> = Vec::new();
@@ -205,7 +186,7 @@ fn calc(tokens: &Vec<Rc<Token>>, variables: &Vec<i32>) -> i32 {
 
 fn get_variants(vars: &[i32]) -> Vec<Vec<i32>> {
     if vars.len() == 0 {
-        return vec![];
+        return vec![vec![]];
     }
     let variants = get_variants(&vars[1..]);
     (1..=vars[0]).map(|i| {
@@ -222,26 +203,12 @@ fn get_variants(vars: &[i32]) -> Vec<Vec<i32>> {
 fn main() {
     let expr = read_line().replace(" ", "");
     let tokens: Vec<Rc<Token>> = TokenIterator::new(expr.as_str()).map(|x| Rc::new(x)).collect();
-    let mut variables = tokens.iter()
-        //.filter_map(|x| match **x { Token::Operand(ref op) => match op { Operand::Variable(v) => Some(Variable::new(v.clone())), _=> None}, _=> None})
+    let variables = tokens.iter()
         .filter_map(|x| match **x { Token::Operand(ref op) => match op { Operand::Variable(v) => Some(v[1..].parse::<i32>().unwrap()), _=> None}, _=> None})
         .collect::<Vec<_>>();
-    eprintln!("{:?}", tokens);
     let tokens = infix_to_postfix(&tokens);
-    eprintln!("{:?}", tokens);
-    eprintln!("{:?}", variables);
 
-    //let mut last = false;
     let variants = get_variants(&variables[..]);
-    eprintln!("{:?}", variants);
-    /*while !last {
-        last = true;
-        for v in variables.iter_mut() {
-            (*v).inc();
-            last = last && ((*v).val == (*v).end);
-        }
-        println!("{}", calc(&tokens, &variables.iter().map(|v| v.val).collect::<Vec<_>>()));
-    }*/
     for v in &variants {
         println!("{}", calc(&tokens, v));
     }
