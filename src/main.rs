@@ -37,6 +37,14 @@ impl Operator {
             Operator::Sum | Operator::Sub => 1
         }
     }
+    fn calc(&self, left: i32, right: i32) -> i32 {
+        match self {
+            Operator::Mul => left * right,
+            Operator::Div => left / right,
+            Operator::Sum => left + right,
+            Operator::Sub => left - right
+        }
+    }
 }
 
 // Token iterator to parse expression string
@@ -146,6 +154,29 @@ fn infix_to_postfix(tokens: &Vec<Rc<Token>>) -> Vec<Rc<Token>> {
     result
 }
 
+fn calc(tokens: &Vec<Rc<Token>>, variables: &Vec<i32>) -> i32 {
+    let mut i = 0;
+    let mut stack: Vec<i32> = Vec::new();
+    for token in tokens.iter() {
+        match **token {
+            Token::Operand(ref op) => {
+                let val = match op {
+                    Operand::Value(x) => *x,
+                    Operand::Variable(_) => { i += 1; variables[i-1] }
+                };
+                stack.push(val);
+            },
+            Token::Operator(ref op) => {
+                let right = stack.pop().unwrap();
+                let left = stack.pop().unwrap();
+                stack.push(op.calc(left, right));
+            },
+            _ => ()
+        }
+    }
+    stack.pop().unwrap()
+}
+
 // Start point
 fn main() {
     let expr = read_line().replace(" ", "");
@@ -157,20 +188,13 @@ fn main() {
     let tokens = infix_to_postfix(&tokens);
     eprintln!("{:?}", tokens);
 
-    /*let root = build_tree(tokens.as_slice()).unwrap();
-    eprintln!("{:?}", root);
     let mut last = false;
     while !last {
         last = true;
-        unsafe {
-            VARS_I = 0;
-            for v in variables.iter_mut() {
-                VARS[VARS_I] = (*v).inc();
-                VARS_I += 1;
-                last = last && ((*v).val == (*v).end);
-            }
-            VARS_I = 0;
+        for v in variables.iter_mut() {
+            (*v).inc();
+            last = last && ((*v).val == (*v).end);
         }
-        println!("{}", root.calc());
-    }*/
+        println!("{}", calc(&tokens, &variables.iter().map(|v| v.val).collect::<Vec<_>>()));
+    }
 }
