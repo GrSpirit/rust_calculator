@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::collections::BTreeMap;
 use std::io;
 
 fn read_line() -> String {
@@ -13,7 +14,8 @@ enum Operator {
     Mul,
     Sum,
     Sub,
-    Div
+    Div,
+    Greater
 }
 
 // Expression operands
@@ -36,7 +38,8 @@ impl Operator {
     fn precedence(&self) -> u32 {
         match self {
             Operator::Mul | Operator::Div => 2,
-            Operator::Sum | Operator::Sub => 1
+            Operator::Sum | Operator::Sub => 1,
+            Operator::Greater => 0
         }
     }
     fn calc(&self, left: i32, right: i32) -> i32 {
@@ -44,7 +47,8 @@ impl Operator {
             Operator::Mul => left * right,
             Operator::Div => left / right,
             Operator::Sum => left + right,
-            Operator::Sub => left - right
+            Operator::Sub => left - right,
+            Operator::Greater => if left > right { 1 } else { 0 }
         }
     }
 }
@@ -91,6 +95,10 @@ impl<'a> Iterator for TokenIterator<'a> {
         else if expr.starts_with(")") {
             self.offset += 1;
             Some(Token::BracketClose)
+        }
+        else if expr.starts_with(">") {
+            self.offset += 1;
+            Some(Token::Operator(Operator::Greater))
         }
         else {
             let mut chars = expr.chars();
@@ -209,7 +217,13 @@ fn main() {
     let tokens = infix_to_postfix(&tokens);
 
     let variants = get_variants(&variables[..]);
+    let mut values = BTreeMap::new();
     for v in &variants {
-        println!("{}", calc(&tokens, v));
+        let counter = values.entry(calc(&tokens, v)).or_insert(0);
+        *counter += 1;
+    }
+    let total = values.values().sum::<i32>();
+    for (value, count) in &values {
+        println!("{} {1:.2}", value, 100.0 * (*count as f32)/ (total as f32));
     }
 }
