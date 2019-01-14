@@ -27,7 +27,9 @@ enum Operand {
 #[derive(Debug, Clone)]
 enum Token {
     Operator(Operator),
-    Operand(Operand)
+    Operand(Operand),
+    BracketOpen,
+    BracketClose
 }
 
 impl Operator {
@@ -81,6 +83,14 @@ impl<'a> Iterator for TokenIterator<'a> {
         else if expr.starts_with("/") {
             self.offset += 1;
             Some(Token::Operator(Operator::Div))
+        }
+        else if expr.starts_with("(") {
+            self.offset += 1;
+            Some(Token::BracketOpen)
+        }
+        else if expr.starts_with(")") {
+            self.offset += 1;
+            Some(Token::BracketClose)
         }
         else {
             let mut chars = expr.chars();
@@ -139,12 +149,28 @@ fn infix_to_postfix(tokens: &Vec<Rc<Token>>) -> Vec<Rc<Token>> {
                 while let Some(top) = stack.pop() {
                     match *top.clone() {
                         Token::Operator(ref p) => 
-                            if op.precedence() > p.precedence() { stack.push(top); break; }
+                            if op.precedence() > p.precedence() { 
+                                stack.push(top); 
+                                break; 
+                            }
                             else { result.push(top) },
-                        Token::Operand(_) => panic!("Operand is not expected in the operator stack")
+                        Token::BracketOpen => {
+                            stack.push(top);
+                            break;
+                        }
+                        _ => panic!("Operand is not expected in the operator stack")
                     };
                 }
                 stack.push(token.clone());
+            },
+            Token::BracketOpen => stack.push(token.clone()),
+            Token::BracketClose => {
+                while let Some(top) = stack.pop() {
+                    match *top.clone() {
+                        Token::BracketOpen => break,
+                        _ => result.push(top.clone())
+                    }
+                }
             }
         }
     }
@@ -177,24 +203,46 @@ fn calc(tokens: &Vec<Rc<Token>>, variables: &Vec<i32>) -> i32 {
     stack.pop().unwrap()
 }
 
+fn get_variants(vars: &[i32]) -> Vec<Vec<i32>> {
+    if vars.len() == 0 {
+        return vec![];
+    }
+    let variants = get_variants(&vars[1..]);
+    (1..=vars[0]).map(|i| {
+        variants
+            .iter()
+            .map(|vv| vec![vec![i], vv.clone()].into_iter().flatten().collect::<Vec<i32>>())
+            .collect::<Vec<Vec<i32>>>()
+    })
+    .flatten()
+    .collect::<Vec<_>>()
+}
+
 // Start point
 fn main() {
     let expr = read_line().replace(" ", "");
     let tokens: Vec<Rc<Token>> = TokenIterator::new(expr.as_str()).map(|x| Rc::new(x)).collect();
     let mut variables = tokens.iter()
-        .filter_map(|x| match **x { Token::Operand(ref op) => match op { Operand::Variable(v) => Some(Variable::new(v.clone())), _=> None}, _=> None})
+        //.filter_map(|x| match **x { Token::Operand(ref op) => match op { Operand::Variable(v) => Some(Variable::new(v.clone())), _=> None}, _=> None})
+        .filter_map(|x| match **x { Token::Operand(ref op) => match op { Operand::Variable(v) => Some(v[1..].parse::<i32>().unwrap()), _=> None}, _=> None})
         .collect::<Vec<_>>();
     eprintln!("{:?}", tokens);
     let tokens = infix_to_postfix(&tokens);
     eprintln!("{:?}", tokens);
+    eprintln!("{:?}", variables);
 
-    let mut last = false;
-    while !last {
+    //let mut last = false;
+    let variants = get_variants(&variables[..]);
+    eprintln!("{:?}", variants);
+    /*while !last {
         last = true;
         for v in variables.iter_mut() {
             (*v).inc();
             last = last && ((*v).val == (*v).end);
         }
         println!("{}", calc(&tokens, &variables.iter().map(|v| v.val).collect::<Vec<_>>()));
+    }*/
+    for v in &variants {
+        println!("{}", calc(&tokens, v));
     }
 }
