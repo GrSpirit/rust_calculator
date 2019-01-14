@@ -124,28 +124,24 @@ impl Variable {
 fn infix_to_postfix(tokens: &Vec<Rc<Token>>) -> Vec<Rc<Token>> {
     let mut result: Vec<Rc<Token>> = Vec::with_capacity(tokens.len());
     let mut stack: Vec<Rc<Token>> = Vec::new();
-    for token in tokens.iter() {
+    for token in tokens.into_iter() {
         match **token {
             Token::Operand(_) => result.push(token.clone()),
             Token::Operator(ref op) => {
                 while let Some(top) = stack.pop() {
-                    let push_back: bool = match *top {
-                        Token::Operator(ref p) => op.precedence() < p.precedence(),
-                        _ => false
+                    match *top.clone() {
+                        Token::Operator(ref p) => 
+                            if op.precedence() > p.precedence() { stack.push(top); break; }
+                            else { result.push(top) },
+                        Token::Operand(_) => panic!("Operand is not expected in the operator stack")
                     };
-                    if push_back {
-                        stack.push(top);
-                    }
                 }
                 stack.push(token.clone());
-
-                /*match stack.last().map(|v| v.clone()) {
-                    Some(top) => 
-                    None => stack.push(token.clone())
-
-                }*/
             }
         }
+    }
+    while let Some(token) = stack.pop() {
+        result.push(token.clone());
     }
     result
 }
@@ -158,6 +154,9 @@ fn main() {
         .filter_map(|x| match **x { Token::Operand(ref op) => match op { Operand::Variable(v) => Some(Variable::new(v.clone())), _=> None}, _=> None})
         .collect::<Vec<_>>();
     eprintln!("{:?}", tokens);
+    let tokens = infix_to_postfix(&tokens);
+    eprintln!("{:?}", tokens);
+
     /*let root = build_tree(tokens.as_slice()).unwrap();
     eprintln!("{:?}", root);
     let mut last = false;
